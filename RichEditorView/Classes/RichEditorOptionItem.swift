@@ -16,7 +16,9 @@ public protocol RichEditorOption {
 
     /// The title of the item.
     /// If `image` is nil, this will be used for display in the RichEditorToolbar.
-    var title: String { get }
+    var title: String? { get }
+    
+    var attributedTitle: NSAttributedString? { get }
 
     /// The action to be evoked when the action is tapped
     /// - parameter editor: The RichEditorToolbar that the RichEditorOption was being displayed in when tapped.
@@ -30,22 +32,35 @@ public protocol RichEditorOption {
 public struct RichEditorOptionItem: RichEditorOption {
 
     /// The image that should be shown when displayed in the RichEditorToolbar.
-    public var image: UIImage?
+    public let image: UIImage?
 
     /// If an `itemImage` is not specified, this is used in display
-    public var title: String
+    public let title: String?
 
+    public let attributedTitle: NSAttributedString?
+    
     /// The action to be performed when tapped
-    public var handler: ((RichEditorToolbar, AnyObject) -> Void)
-
-    public init(image: UIImage? = nil, title: String, action: @escaping ((RichEditorToolbar, AnyObject) -> Void)) {
+    public let handler: ((RichEditorToolbar, AnyObject) -> Void)
+    
+    public init(_ image: UIImage, action: @escaping ((RichEditorToolbar, AnyObject) -> Void)) {
         self.image = image
-        self.title = title
+        self.title = nil
+        self.attributedTitle = nil
         self.handler = action
     }
     
-    public init(title: String, action: @escaping ((RichEditorToolbar, AnyObject) -> Void)) {
-        self.init(image: nil, title: title, action: action)
+    public init(_ title: String, action: @escaping ((RichEditorToolbar, AnyObject) -> Void)) {
+        self.image = nil
+        self.title = title
+        self.attributedTitle = nil
+        self.handler = action
+    }
+    
+    public init(_ title: NSAttributedString, action: @escaping ((RichEditorToolbar, AnyObject) -> Void)) {
+        self.image = nil
+        self.title = nil
+        self.attributedTitle = title
+        self.handler = action
     }
     
     public func action(_ toolbar: RichEditorToolbar, sender: AnyObject) {
@@ -120,7 +135,7 @@ public enum RichEditorDefaultOption: RichEditorOption {
         return UIImage(named: name, in: bundle, compatibleWith: nil)?.withRenderingMode(.alwaysTemplate)
     }
     
-    public var title: String {
+    public var title: String? {
         switch self {
         case .clear: return NSLocalizedString("Clear", comment: "")
         case .undo: return NSLocalizedString("Undo", comment: "")
@@ -145,6 +160,8 @@ public enum RichEditorDefaultOption: RichEditorOption {
         case .link: return NSLocalizedString("Link", comment: "")
         }
     }
+    
+    public var attributedTitle: NSAttributedString? { return nil }
     
     public func action(_ toolbar: RichEditorToolbar, sender: AnyObject) {
         switch self {

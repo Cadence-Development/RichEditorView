@@ -19,13 +19,38 @@ const RE = {};
 
 RE.editor = document.getElementById('editor');
 
+RE.selectionState = {
+    canUndo: false,
+    canRedo: false,
+    isBold: false,
+    isItalic: false,
+    isUndelined: false,
+    isOrderedList: false,
+    isDotList: false,
+    isLink: false,
+    selectionLength: 0
+};
+
 // Not universally supported, but seems to work in iOS 7 and 8
-document.addEventListener('selectionchange', function() {
+document.addEventListener('selectionchange', function () {
     RE.backuprange();
 });
 
+// Selection state handlers
+function isSelectionLink() {
+    if (window.getSelection().toString !== '') {
+        const selection = window.getSelection().getRangeAt(0);
+        if (selection) {
+            if (selection.startContainer.parentNode.tagName === 'A'
+                || selection.endContainer.parentNode.tagName === 'A') {
+                return true;
+            } else { return false; }
+        } else { return false; }
+    }
+};
+
 //looks specifically for a Range selection and not a Caret selection
-RE.rangeSelectionExists = function() {
+RE.rangeSelectionExists = function () {
     //!! coerces a null to bool
     const sel = document.getSelection();
     if (sel && sel.type == 'Range') {
@@ -34,7 +59,7 @@ RE.rangeSelectionExists = function() {
     return false;
 };
 
-RE.rangeOrCaretSelectionExists = function() {
+RE.rangeOrCaretSelectionExists = function () {
     //!! coerces a null to bool
     const sel = document.getSelection();
     if (sel && (sel.type == 'Range' || sel.type == 'Caret')) {
@@ -43,57 +68,69 @@ RE.rangeOrCaretSelectionExists = function() {
     return false;
 };
 
-RE.editor.addEventListener('input', function() {
+RE.canInsertLink = function () {
+    //!! coerces a null to bool
+    if (isSelectionLink()) {
+        return false;
+    }
+    const sel = document.getSelection();
+    if (sel && sel.type == 'Range') {
+        return true;
+    }
+    return false;
+};
+
+RE.editor.addEventListener('input', function () {
     RE.updatePlaceholder();
     RE.backuprange();
     RE.sendInputCallback();
 });
 
-RE.editor.addEventListener('focus', function() {
+RE.editor.addEventListener('focus', function () {
     RE.backuprange();
     RE.callback('focus');
 });
 
-RE.editor.addEventListener('blur', function() {
+RE.editor.addEventListener('blur', function () {
     RE.callback('blur');
 });
 
-RE.customAction = function(action) {
+RE.customAction = function (action) {
     RE.callback('action/' + action);
 };
 
-RE.updateHeight = function() {
+RE.updateHeight = function () {
     RE.callback('updateHeight');
 }
 
 RE.callbackQueue = [];
-RE.runCallbackQueue = function() {
+RE.runCallbackQueue = function () {
     if (RE.callbackQueue.length === 0) {
         return;
     }
 
-    setTimeout(function() {
+    setTimeout(function () {
         window.location.href = 're-callback://';
     }, 0);
 };
 
-RE.getCommandQueue = function() {
+RE.getCommandQueue = function () {
     let commands = JSON.stringify(RE.callbackQueue);
     RE.callbackQueue = [];
     return commands;
 };
 
 // Tells the editor that the contents have changed, user input action
-RE.sendInputCallback = function() {
+RE.sendInputCallback = function () {
     RE.callback('input');
 };
 
-RE.callback = function(method) {
+RE.callback = function (method) {
     RE.callbackQueue.push(method);
     RE.runCallbackQueue();
 };
 
-RE.setHtml = function(contents) {
+RE.setHtml = function (contents) {
     let tempWrapper = document.createElement('div');
     tempWrapper.innerHTML = contents;
     let images = tempWrapper.querySelectorAll('img');
@@ -106,23 +143,23 @@ RE.setHtml = function(contents) {
     RE.updatePlaceholder();
 };
 
-RE.getHtml = function() {
+RE.getHtml = function () {
     return RE.editor.innerHTML;
 };
 
-RE.getText = function() {
+RE.getText = function () {
     return RE.editor.innerText;
 };
 
-RE.setBaseTextColor = function(color) {
-    RE.editor.style.color  = color;
+RE.setBaseTextColor = function (color) {
+    RE.editor.style.color = color;
 };
 
-RE.setPlaceholderText = function(text) {
+RE.setPlaceholderText = function (text) {
     RE.editor.setAttribute('placeholder', text);
 };
 
-RE.updatePlaceholder = function() {
+RE.updatePlaceholder = function () {
     if (RE.editor.innerHTML.indexOf('img') !== -1 || RE.editor.innerHTML.length > 0) {
         RE.editor.classList.remove('placeholder');
     } else {
@@ -130,55 +167,62 @@ RE.updatePlaceholder = function() {
     }
 };
 
-RE.removeFormat = function() {
+RE.removeFormat = function () {
     document.execCommand('removeFormat', false, null);
 };
 
-RE.setFontSize = function(size) {
+RE.setFontSize = function (size) {
     RE.editor.style.fontSize = size;
 };
 
-RE.setBackgroundColor = function(color) {
+RE.setBackgroundColor = function (color) {
     RE.editor.style.backgroundColor = color;
 };
 
-RE.setHeight = function(size) {
+RE.setHeight = function (size) {
     RE.editor.style.height = size;
 };
 
-RE.undo = function() {
+RE.undo = function () {
     document.execCommand('undo', false, null);
+    updateSelectionStateOnChange();
 };
 
-RE.redo = function() {
+RE.redo = function () {
     document.execCommand('redo', false, null);
+    updateSelectionStateOnChange();
 };
 
-RE.setBold = function() {
+RE.setBold = function () {
     document.execCommand('bold', false, null);
+    RE.selectionState.isBold = !RE.selectionState.isBold;
+    sendSelectionState();
 };
 
-RE.setItalic = function() {
+RE.setItalic = function () {
     document.execCommand('italic', false, null);
+    RE.selectionState.isItalic = !RE.selectionState.isItalic;
+    sendSelectionState();
 };
 
-RE.setSubscript = function() {
+RE.setSubscript = function () {
     document.execCommand('subscript', false, null);
 };
 
-RE.setSuperscript = function() {
+RE.setSuperscript = function () {
     document.execCommand('superscript', false, null);
 };
 
-RE.setStrikeThrough = function() {
+RE.setStrikeThrough = function () {
     document.execCommand('strikeThrough', false, null);
 };
 
-RE.setUnderline = function() {
+RE.setUnderline = function () {
     document.execCommand('underline', false, null);
+    updateSelectionStateOnChange();
 };
 
-RE.setTextColor = function(color) {
+RE.setTextColor = function (color) {
     if (!color) {
         const node = RE.currentSelection.node;
         if (node) {
@@ -187,14 +231,14 @@ RE.setTextColor = function(color) {
         }
         return;
     }
-    
+
     RE.restorerange();
     document.execCommand('styleWithCSS', null, true);
     document.execCommand('foreColor', false, color);
     document.execCommand('styleWithCSS', null, false);
 };
 
-RE.setTextBackgroundColor = function(color) {
+RE.setTextBackgroundColor = function (color) {
     if (!color) {
         const node = RE.currentSelection.node;
         if (node) {
@@ -203,54 +247,58 @@ RE.setTextBackgroundColor = function(color) {
         }
         return;
     }
-    
+
     RE.restorerange();
     document.execCommand('styleWithCSS', null, true);
     document.execCommand('hiliteColor', false, color);
     document.execCommand('styleWithCSS', null, false);
 };
 
-RE.setHeading = function(heading) {
+RE.setHeading = function (heading) {
     document.execCommand('formatBlock', false, '<h' + heading + '>');
 };
 
-RE.setIndent = function() {
+RE.setIndent = function () {
     document.execCommand('indent', false, null);
 };
 
-RE.setOutdent = function() {
+RE.setOutdent = function () {
     document.execCommand('outdent', false, null);
 };
 
-RE.setOrderedList = function() {
+RE.setOrderedList = function () {
     document.execCommand('insertOrderedList', false, null);
+    RE.selectionState.isOrderedList = !RE.selectionState.isOrderedList;
+    sendSelectionState();
 };
 
-RE.setUnorderedList = function() {
+RE.setUnorderedList = function () {
     document.execCommand('insertUnorderedList', false, null);
+    RE.selectionState.isDotList = !RE.selectionState.isDotList;
+    sendSelectionState();
 };
 
-RE.setJustifyLeft = function() {
+RE.setJustifyLeft = function () {
     document.execCommand('justifyLeft', false, null);
 };
 
-RE.setJustifyCenter = function() {
+RE.setJustifyCenter = function () {
     document.execCommand('justifyCenter', false, null);
 };
 
-RE.setJustifyRight = function() {
+RE.setJustifyRight = function () {
     document.execCommand('justifyRight', false, null);
 };
 
-RE.getLineHeight = function() {
+RE.getLineHeight = function () {
     return RE.editor.style.lineHeight;
 };
 
-RE.setLineHeight = function(height) {
+RE.setLineHeight = function (height) {
     RE.editor.style.lineHeight = height;
 };
 
-RE.insertImage = function(url, alt) {
+RE.insertImage = function (url, alt) {
     const img = document.createElement('img');
     img.setAttribute('src', url);
     img.setAttribute('alt', alt);
@@ -260,50 +308,72 @@ RE.insertImage = function(url, alt) {
     RE.sendInputCallback();
 };
 
-RE.setBlockquote = function() {
+RE.setBlockquote = function () {
     document.execCommand('formatBlock', false, '<blockquote>');
 };
 
-RE.insertHTML = function(html) {
+RE.insertHTML = function (html) {
     RE.restorerange();
     document.execCommand('insertHTML', false, html);
 };
 
-RE.insertLink = function(url, title) {
+RE.insertLink = function (url, title) {
     RE.restorerange();
-    const sel = document.getSelection();
-    if (sel.toString().length !== 0) {
-        if (sel.rangeCount) {
-            let el = document.createElement('a');
-            el.setAttribute('href', url);
-            el.setAttribute('title', title);
+    if (isSelectionLink()) {
+        RE.removeLink();
+    } else {
+        const sel = document.getSelection();
+        if (sel.toString().length !== 0) {
+            if (sel.rangeCount) {
+                let el = document.createElement('a');
+                el.setAttribute('href', url);
+                el.setAttribute('title', title);
 
-            let range = sel.getRangeAt(0).cloneRange();
-            range.surroundContents(el);
-            sel.removeAllRanges();
-            sel.addRange(range);
+                let range = sel.getRangeAt(0).cloneRange();
+                range.surroundContents(el);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
         }
     }
-    
+
     RE.sendInputCallback();
+    
+    updateSelectionStateOnChange();
 };
 
-RE.prepareInsert = function() {
+RE.removeLink = function () {
+    const sel = document.getSelection();
+    if (sel.anchorNode.parentElement.tagName == 'A') {
+        sel.selectAllChildren(sel.anchorNode.parentNode)
+        let text = sel.anchorNode.parentElement.text;
+        let newNode = document.createTextNode(text);
+        sel.anchorNode.parentElement.replaceWith(newNode);
+        sel.removeAllRanges();
+
+        let newRange = document.createRange();
+        newRange.selectNode(newNode);
+        sel.addRange(newRange);
+    }
+    updateSelectionStateOnChange();
+};
+
+RE.prepareInsert = function () {
     RE.backuprange();
 };
 
-RE.backuprange = function() {
+RE.backuprange = function () {
     const selection = window.getSelection();
     if (selection.rangeCount === 0) {
         return;
     }
-    
+
     let node = selection.anchorNode;
     if (node.nodeType === 3) {
         // use the parent, if text node
         node = node.parentNode;
     }
-    
+
     const range = selection.getRangeAt(0);
     RE.currentSelection = {
         startContainer: range.startContainer,
@@ -314,7 +384,7 @@ RE.backuprange = function() {
     };
 };
 
-RE.addRangeToSelection = function(selection, range) {
+RE.addRangeToSelection = function (selection, range) {
     if (selection) {
         selection.removeAllRanges();
         selection.addRange(range);
@@ -322,7 +392,7 @@ RE.addRangeToSelection = function(selection, range) {
 };
 
 // Programatically select a DOM element
-RE.selectElementContents = function(el) {
+RE.selectElementContents = function (el) {
     let range = document.createRange();
     range.selectNodeContents(el);
     let sel = window.getSelection();
@@ -330,7 +400,7 @@ RE.selectElementContents = function(el) {
     RE.addRangeToSelection(sel, range);
 };
 
-RE.restorerange = function() {
+RE.restorerange = function () {
     let selection = window.getSelection();
     selection.removeAllRanges();
     let range = document.createRange();
@@ -339,7 +409,7 @@ RE.restorerange = function() {
     selection.addRange(range);
 };
 
-RE.focus = function() {
+RE.focus = function () {
     let range = document.createRange();
     range.selectNodeContents(RE.editor);
     range.collapse(false);
@@ -349,7 +419,7 @@ RE.focus = function() {
     RE.editor.focus();
 };
 
-RE.focusAtPoint = function(x, y) {
+RE.focusAtPoint = function (x, y) {
     const range = document.caretRangeFromPoint(x, y) || document.createRange();
     const selection = window.getSelection();
     selection.removeAllRanges();
@@ -357,14 +427,14 @@ RE.focusAtPoint = function(x, y) {
     RE.editor.focus();
 };
 
-RE.blurFocus = function() {
+RE.blurFocus = function () {
     RE.editor.blur();
 };
 
 /**
-Recursively search element ancestors to find a element nodeName e.g. A
-**/
-const _findNodeByNameInContainer = function(element, nodeName, rootElementId) {
+ Recursively search element ancestors to find a element nodeName e.g. A
+ **/
+const _findNodeByNameInContainer = function (element, nodeName, rootElementId) {
     if (element.nodeName == nodeName) {
         return element;
     } else {
@@ -375,11 +445,11 @@ const _findNodeByNameInContainer = function(element, nodeName, rootElementId) {
     }
 };
 
-const isAnchorNode = function(node) {
+const isAnchorNode = function (node) {
     return ('A' == node.nodeName);
 };
 
-RE.getAnchorTagsInNode = function(node) {
+RE.getAnchorTagsInNode = function (node) {
     let links = [];
 
     while (node.nextSibling !== null && node.nextSibling !== undefined) {
@@ -391,7 +461,7 @@ RE.getAnchorTagsInNode = function(node) {
     return links;
 };
 
-RE.countAnchorTagsInNode = function(node) {
+RE.countAnchorTagsInNode = function (node) {
     return RE.getAnchorTagsInNode(node).length;
 };
 
@@ -399,7 +469,7 @@ RE.countAnchorTagsInNode = function(node) {
  * If the current selection's parent is an anchor tag, get the href.
  * @returns {string}
  */
-RE.getSelectedHref = function() {
+RE.getSelectedHref = function () {
     let href = '';
     let sel = window.getSelection();
     if (!RE.rangeOrCaretSelectionExists()) {
@@ -422,7 +492,7 @@ RE.getSelectedHref = function() {
 
 // Returns the cursor position relative to its current position onscreen.
 // Can be negative if it is above what is visible
-RE.getRelativeCaretYPosition = function() {
+RE.getRelativeCaretYPosition = function () {
     let y = 0;
     let sel = window.getSelection();
     if (sel.rangeCount) {
@@ -445,6 +515,40 @@ RE.getRelativeCaretYPosition = function() {
     return y;
 };
 
-window.onload = function() {
+let debounceSelectionNotifierTimer;
+
+const debounce = (callback, time) => {
+    window.clearTimeout(debounceSelectionNotifierTimer);
+    debounceSelectionNotifierTimer = window.setTimeout(callback, time);
+};
+
+function sendSelectionState() {
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.selectionStateNotifier) {
+        window.webkit.messageHandlers.selectionStateNotifier.postMessage(RE.selectionState);
+    }
+}
+
+function updateSelectionStateOnChange() {
+    if (document.queryCommandEnabled) {
+        RE.selectionState.canUndo = document.queryCommandEnabled("undo");
+        RE.selectionState.canRedo = document.queryCommandEnabled("redo");
+    }
+    if (document.queryCommandState) {
+        RE.selectionState.isBold = document.queryCommandState("bold");
+        RE.selectionState.isItalic = document.queryCommandState("italic");
+        RE.selectionState.isUndelined = document.queryCommandState("underline");
+        RE.selectionState.isOrderedList = document.queryCommandState("insertOrderedList");
+        RE.selectionState.isDotList = document.queryCommandState("insertUnorderedList");
+    }
+    RE.selectionState.isLink = isSelectionLink();
+    RE.selectionState.selectionLength = document.getSelection().toString().length;
+    sendSelectionState()
+}
+
+document.addEventListener("selectionchange", function () {
+    debounce(updateSelectionStateOnChange, 300);
+});
+
+window.onload = function () {
     RE.callback('ready');
 };

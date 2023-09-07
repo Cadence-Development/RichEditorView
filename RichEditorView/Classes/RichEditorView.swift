@@ -14,35 +14,49 @@ import WebKit
 private let DefaultInnerLineHeight: Int = 21
     
 /// RichEditorDelegate defines callbacks for the delegate of the RichEditorView
-@objc public protocol RichEditorDelegate: AnyObject {
+public protocol RichEditorDelegate: AnyObject {
     /// Called when the inner height of the text being displayed changes
     /// Can be used to update the UI
-    @objc optional func richEditor(_ editor: RichEditorView, heightDidChange height: Int)
+    func richEditor(_ editor: RichEditorView, heightDidChange height: Int)
     
     /// Called whenever the content inside the view changes
-    @objc optional func richEditor(_ editor: RichEditorView, contentDidChange content: String)
+    func richEditor(_ editor: RichEditorView, contentDidChange content: String)
     
     /// Called when the rich editor starts editing
-    @objc optional func richEditorTookFocus(_ editor: RichEditorView)
+    func richEditorTookFocus(_ editor: RichEditorView)
     
     /// Called when the rich editor stops editing or loses focus
-    @objc optional func richEditorLostFocus(_ editor: RichEditorView)
+    func richEditorLostFocus(_ editor: RichEditorView)
     
     /// Called when the RichEditorView has become ready to receive input
     /// More concretely, is called when the internal WKWebView loads for the first time, and contentHTML is set
-    @objc optional func richEditorDidLoad(_ editor: RichEditorView)
+    func richEditorDidLoad(_ editor: RichEditorView)
     
     /// Called when the internal WKWebView begins loading a URL that it does not know how to respond to
     /// For example, if there is an external link, and then the user taps it
-    @objc optional func richEditor(_ editor: RichEditorView, shouldInteractWith url: URL) -> Bool
+    func richEditor(_ editor: RichEditorView, shouldInteractWith url: URL) -> Bool
   
     /// Called when the internal WKWebView response to the external link and the `richEditor(_ editor: RichEditorView, shouldInteractWith url: URL)` should return true
     /// You should open the external link in this function.
-    @objc optional func richEditor(_ editor: RichEditorView, interactWith url: URL)
+    func richEditor(_ editor: RichEditorView, interactWith url: URL)
     
     /// Called when custom actions are called by callbacks in the JS
     /// By default, this method is not used unless called by some custom JS that you add
-    @objc optional func richEditor(_ editor: RichEditorView, handle action: String)
+    func richEditor(_ editor: RichEditorView, handle action: String)
+    
+    func richEditor(_ editor: RichEditorView, didUpdatedSelectionState state: RichEditorSelectionState)
+}
+
+public extension RichEditorDelegate {
+    func richEditor(_ editor: RichEditorView, heightDidChange height: Int) {}
+    func richEditor(_ editor: RichEditorView, contentDidChange content: String) {}
+    func richEditorTookFocus(_ editor: RichEditorView) {}
+    func richEditorLostFocus(_ editor: RichEditorView) {}
+    func richEditorDidLoad(_ editor: RichEditorView) {}
+    func richEditor(_ editor: RichEditorView, shouldInteractWith url: URL) -> Bool { return false }
+    func richEditor(_ editor: RichEditorView, interactWith url: URL) {}
+    func richEditor(_ editor: RichEditorView, handle action: String) {}
+    func richEditor(_ editor: RichEditorView, didUpdatedSelectionState state: RichEditorSelectionState) {}
 }
 
 /// RichEditorView is a UIView that displays richly styled text, and allows it to be edited in a WYSIWYG fashion.
@@ -59,6 +73,8 @@ private let DefaultInnerLineHeight: Int = 21
     
     /// The internal WKWebView that is used to display the editor.
     open private(set) var webView: RichEditorWebView
+    
+    private let userContentController = WKUserContentController()
     
     /// Whether or not scroll is enabled on the view.
     open var isScrollEnabled: Bool = true {
@@ -77,7 +93,7 @@ private let DefaultInnerLineHeight: Int = 21
     open private(set) var contentHTML: String = "" {
         didSet {
             if isReady {
-                delegate?.richEditor?(self, contentDidChange: contentHTML)
+                delegate?.richEditor(self, contentDidChange: contentHTML)
             }
         }
     }
@@ -86,7 +102,7 @@ private let DefaultInnerLineHeight: Int = 21
     /// Is continually being updated as the text is edited.
     open private(set) var editorHeight: Int = 0 {
         didSet {
-            delegate?.richEditor?(self, heightDidChange: editorHeight)
+            delegate?.richEditor(self, heightDidChange: editorHeight)
         }
     }
     
@@ -131,13 +147,17 @@ private let DefaultInnerLineHeight: Int = 21
     // MARK: Initialization
     
     public override init(frame: CGRect) {
-        webView = RichEditorWebView()
+        let config = WKWebViewConfiguration()
+        config.userContentController = userContentController
+        webView = RichEditorWebView(frame: frame, configuration: config)
         super.init(frame: frame)
         setup()
     }
     
     required public init?(coder aDecoder: NSCoder) {
-        webView = RichEditorWebView()
+        let config = WKWebViewConfiguration()
+        config.userContentController = userContentController
+        webView = RichEditorWebView(frame: .zero, configuration: config)
         super.init(coder: aDecoder)
         setup()
     }
@@ -152,6 +172,12 @@ private let DefaultInnerLineHeight: Int = 21
         webView.scrollView.bounces = true
         webView.scrollView.delegate = self
         webView.scrollView.clipsToBounds = false
+        
+        userContentController.add(self, name: "selectionStateNotifier")
+        
+        if #available(iOS 16.4, *) {
+            webView.isInspectable = true
+        }
         addSubview(webView)
         
         reloadHTML(with: html)
@@ -251,6 +277,12 @@ private let DefaultInnerLineHeight: Int = 21
     /// Whether or not the selection has a type specifically of "Range".
     public func hasRangeSelection(handler: @escaping (Bool) -> Void) {
         runJS("RE.rangeSelectionExists()") { val in
+            handler((val as NSString).boolValue)
+        }
+    }
+    
+    public func canInsertLink(handler: @escaping (Bool) -> Void) {
+        runJS("RE.canInsertLink()") { val in
             handler((val as NSString).boolValue)
         }
     }
@@ -376,6 +408,11 @@ private let DefaultInnerLineHeight: Int = 21
         runJS("RE.insertLink('\(href.escaped)', '\(title.escaped)')")
     }
     
+    public func removeLink() {
+        runJS("RE.prepareInsert()")
+        runJS("RE.removeLink()")
+    }
+    
     public func focus() {
         runJS("RE.focus()")
     }
@@ -467,8 +504,8 @@ private let DefaultInnerLineHeight: Int = 21
         // User is tapping on a link, so we should react accordingly
         if navigationAction.navigationType == .linkActivated {
             if let url = navigationAction.request.url {
-                if delegate?.richEditor?(self, shouldInteractWith: url) ?? false {
-                    delegate?.richEditor?(self, interactWith: url)
+                if delegate?.richEditor(self, shouldInteractWith: url) ?? false {
+                    delegate?.richEditor(self, interactWith: url)
                     return decisionHandler(WKNavigationActionPolicy.cancel)
                 }
             }
@@ -574,7 +611,7 @@ private let DefaultInnerLineHeight: Int = 21
                 placeholder = placeholderText
                 lineHeight = DefaultInnerLineHeight
                 
-                delegate?.richEditorDidLoad?(self)
+                delegate?.richEditorDidLoad(self)
                 isReady = true
             }
             updateHeight()
@@ -587,9 +624,9 @@ private let DefaultInnerLineHeight: Int = 21
         } else if method.hasPrefix("updateHeight") {
             updateHeight()
         } else if method.hasPrefix("focus") {
-            delegate?.richEditorTookFocus?(self)
+            delegate?.richEditorTookFocus(self)
         } else if method.hasPrefix("blur") {
-            delegate?.richEditorLostFocus?(self)
+            delegate?.richEditorLostFocus(self)
         } else if method.hasPrefix("action/") {
             runJS("RE.getHtml()") { content in
                 self.contentHTML = content
@@ -600,13 +637,12 @@ private let DefaultInnerLineHeight: Int = 21
                 let range = method.range(of: actionPrefix)!
                 let action = method.replacingCharacters(in: range, with: "")
                 
-                self.delegate?.richEditor?(self, handle: action)
+                self.delegate?.richEditor(self, handle: action)
             }
         }
     }
     
     // MARK: - Responder Handling
-    
     override open func becomeFirstResponder() -> Bool {
         if !webView.isFirstResponder {
             focus()
@@ -620,5 +656,15 @@ private let DefaultInnerLineHeight: Int = 21
         blur()
         return true
     }
+}
+
+extension RichEditorView: WKScriptMessageHandler {
     
+    public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard
+            let data = try? JSONSerialization.data(withJSONObject: message.body),
+            let model = try? JSONDecoder().decode(RichEditorSelectionState.self, from: data)
+        else { return }
+        delegate?.richEditor(self, didUpdatedSelectionState: model)
+    }
 }

@@ -15,7 +15,11 @@ class ViewController: UIViewController {
     @IBOutlet var htmlTextView: UITextView!
     var isTextColor = true
     @IBOutlet weak var editButton: UIBarButtonItem!
+    
+    private var selectionState: RichEditorSelectionState?
   
+    private let schemeColor = UIColor.systemGreen
+    
     lazy var toolbar: RichEditorToolbar = {
         let toolbar = RichEditorToolbar(frame: CGRect(x: 0, y: 0, width: self.view.bounds.width, height: 44))
 //        let options: [RichEditorDefaultOption] = [
@@ -42,16 +46,47 @@ class ViewController: UIViewController {
         toolbar.delegate = self
         toolbar.editor = editorView
 
-        // This will create a custom action that clears all the input text when it is pressed
-        let item = RichEditorOptionItem(title: "Clear") { (toolbar, sender) in
+        updateOptions()
+    }
+    
+    private func updateOptions() {
+        let undoOption = RichEditorOptionItem(sfImage("arrow.counterclockwise", isActive: selectionState?.canUndo)) { toolbar, _ in
+            toolbar.editor?.undo()
+        }
+        let redoOption = RichEditorOptionItem(sfImage("arrow.clockwise", isActive: selectionState?.canRedo)) { toolbar, _ in
+            toolbar.editor?.redo()
+        }
+        let boldOption = RichEditorOptionItem(sfImage("bold", isActive: selectionState?.isBold)) { toolbar, _ in
+            toolbar.editor?.bold()
+        }
+        let italicOption = RichEditorOptionItem(sfImage("italic", isActive: selectionState?.isItalic)) { toolbar, _ in
+            toolbar.editor?.italic()
+        }
+        let underlineOption = RichEditorOptionItem(sfImage("underline", isActive: selectionState?.isUndelined)) { toolbar, _ in
+            toolbar.editor?.underline()
+        }
+        let linkOption = RichEditorOptionItem(sfImage("link", isActive: selectionState?.isLink)) { toolbar, _ in
+            toolbar.delegate?.richEditorToolbarInsertLink?(toolbar)
+        }
+        let dotListOption = RichEditorOptionItem(sfImage("list.bullet", isActive: selectionState?.isDotList)) { toolbar, _ in
+            toolbar.editor?.unorderedList()
+        }
+        let numberListOption = RichEditorOptionItem(sfImage("list.number", isActive: selectionState?.isOrderedList)) { toolbar, _ in
+            toolbar.editor?.orderedList()
+        }
+        let clearOption = RichEditorOptionItem("Clear") { (toolbar, sender) in
             toolbar.editor?.html = ""
         }
-
-        var options = toolbar.options
-        options.append(item)
-        toolbar.options = options
+        toolbar.options = [undoOption, redoOption, boldOption, italicOption, underlineOption, linkOption, dotListOption, numberListOption, clearOption]
+        toolbar.itemMargin = 16
     }
   
+    private func sfImage(_ name: String, isActive: Bool?) -> UIImage {
+        let isActive = isActive ?? false
+        let config = UIImage.SymbolConfiguration(pointSize: 24, weight: isActive ? .semibold : .regular)
+        return UIImage(systemName: name, withConfiguration: config)!.withTintColor(isActive ? schemeColor : .black.withAlphaComponent(0.8), renderingMode: .alwaysOriginal)
+    }
+    
     @IBAction func changeEditState(_ sender: Any) {
         editorView.editingEnabled.toggle()
       
@@ -146,11 +181,18 @@ extension ViewController: RichEditorToolbarDelegate, UIColorPickerViewController
 
     func richEditorToolbarInsertLink(_ toolbar: RichEditorToolbar) {
         // Can only add links to selected text, so make sure there is a range selection first
-        toolbar.editor?.hasRangeSelection(handler: { (hasSelection) in
-            if hasSelection {
+        toolbar.editor?.canInsertLink(handler: { (canInsert) in
+            if canInsert {
                 self.toolbar.editor?.insertLink("https://github.com/cbess/RichEditorView", title: "GitHub Link")
+            } else {
+                self.toolbar.editor?.removeLink()
             }
         })
+    }
+    
+    func richEditor(_ editor: RichEditorView, didUpdatedSelectionState state: RichEditorSelectionState) {
+        selectionState = state
+        updateOptions()
     }
     
     func colorPickerViewControllerDidSelectColor(_ viewController: UIColorPickerViewController) {

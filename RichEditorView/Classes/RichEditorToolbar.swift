@@ -115,6 +115,13 @@ private let DefaultFont = UIFont.preferredFont(forTextStyle: .body)
         return ceil(boundingBox.width)
     }
 
+    func stringWidth(_ text: NSAttributedString, withConstrainedHeight height: CGFloat) -> CGFloat {
+        let constraintRect = CGSize(width: .greatestFiniteMagnitude, height: height)
+        let boundingBox = text.boundingRect(with: constraintRect, options: .usesLineFragmentOrigin, context: nil)
+
+        return ceil(boundingBox.width)
+    }
+    
     // MARK: - CollectionView
     
     public func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
@@ -146,8 +153,10 @@ private let DefaultFont = UIFont.preferredFont(forTextStyle: .body)
         var width: CGFloat = 0
         if let image = opt.image {
             width = image.size.width
-        } else {
-            width = stringWidth(opt.title, withConstrainedHeight: bounds.height, font: DefaultFont)
+        } else if let value = opt.title {
+            width = stringWidth(value, withConstrainedHeight: bounds.height, font: DefaultFont)
+        } else if let value = opt.attributedTitle {
+            width = stringWidth(value, withConstrainedHeight: bounds.height)
         }
         return CGSize(width: width, height: bounds.height)
     }
@@ -176,11 +185,15 @@ private class ToolbarCell: UICollectionViewCell {
                 imageView.image = image
                 imageView.contentMode = .scaleAspectFit
                 subview = imageView
-            } else {
+            } else if let title = option.title {
                 let label = UILabel(frame: .zero)
                 label.text = option.title
                 label.font = DefaultFont
                 label.textColor = tintColor
+                subview = label
+            } else if let title = option.attributedTitle {
+                let label = UILabel(frame: .zero)
+                label.attributedText = title
                 subview = label
             }
             
