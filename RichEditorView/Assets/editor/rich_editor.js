@@ -171,6 +171,17 @@ RE.removeFormat = function () {
     document.execCommand('removeFormat', false, null);
 };
 
+RE.removeContent = function () {
+    document.getSelection().removeAllRanges()
+    for(let i = 0; i < RE.editor.childNodes.length; i++) {
+        var range = document.createRange();
+        range.selectNode(RE.editor.childNodes[i]);
+        document.getSelection().addRange(range)
+    }
+    document.execCommand('delete', false, null);
+    updateSelectionStateOnChange();
+};
+
 RE.setFontSize = function (size) {
     RE.editor.style.fontSize = size;
 };

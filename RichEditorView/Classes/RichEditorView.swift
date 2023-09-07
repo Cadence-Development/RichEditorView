@@ -425,6 +425,10 @@ public extension RichEditorDelegate {
         runJS("RE.blurFocus()")
     }
     
+    public func removeContent() {
+        runJS("RE.removeContent()")
+    }
+    
     /// Runs some JavaScript on the WKWebView and returns the result
     /// If there is no result, returns an empty string
     /// - parameter js: The JavaScript string to be run
