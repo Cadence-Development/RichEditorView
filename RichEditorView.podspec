@@ -7,7 +7,7 @@ Pod::Spec.new do |s|
   s.authors           = { "C. Bess" => "cbess@users.noreply.github.com", "Caesar Wirth" => "cjwirth@gmail.com" }
   s.source           = { :git => "https://github.com/cbess/RichEditorView.git", :tag => s.version.to_s }
 
-  s.platform     = :ios, '12.0'
+  s.platform     = :ios, '14.0'
   s.swift_version = '5.0'
   s.requires_arc = true
 
