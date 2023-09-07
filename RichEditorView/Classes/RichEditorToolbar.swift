@@ -187,7 +187,7 @@ private class ToolbarCell: UICollectionViewCell {
                 subview = imageView
             } else if let title = option.title {
                 let label = UILabel(frame: .zero)
-                label.text = option.title
+                label.text = title
                 label.font = DefaultFont
                 label.textColor = tintColor
                 subview = label
