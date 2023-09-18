@@ -403,9 +403,9 @@ public extension RichEditorDelegate {
         runJS("RE.insertImage('\(url.escaped)', '\(alt.escaped)')")
     }
     
-    public func insertLink(_ href: String, title: String) {
+    public func insertLink(_ href: String) {
         runJS("RE.prepareInsert()")
-        runJS("RE.insertLink('\(href.escaped)', '\(title.escaped)')")
+        runJS("RE.insertLink('\(href.escaped)')")
     }
     
     public func removeLink() {

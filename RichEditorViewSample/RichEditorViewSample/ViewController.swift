@@ -65,7 +65,7 @@ class ViewController: UIViewController {
         let underlineOption = RichEditorOptionItem(sfImage("underline", isActive: selectionState?.isUndelined)) { toolbar, _ in
             toolbar.editor?.underline()
         }
-        let linkOption = RichEditorOptionItem(sfImage("link", isActive: selectionState?.isLink)) { toolbar, _ in
+        let linkOption = RichEditorOptionItem(sfImage("link", isActive: true)) { toolbar, _ in
             toolbar.delegate?.richEditorToolbarInsertLink?(toolbar)
         }
         let dotListOption = RichEditorOptionItem(sfImage("list.bullet", isActive: selectionState?.isDotList)) { toolbar, _ in

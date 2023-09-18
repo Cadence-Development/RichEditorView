@@ -13,7 +13,7 @@
     "tag": "5.1"
   },
   "platforms": {
-    "ios": "12.0"
+    "ios": "14.0"
   },
   "swift_versions": "5.0",
   "requires_arc": true,

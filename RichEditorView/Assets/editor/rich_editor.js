@@ -38,15 +38,16 @@ document.addEventListener('selectionchange', function () {
 
 // Selection state handlers
 function isSelectionLink() {
-    if (window.getSelection().toString !== '') {
-        const selection = window.getSelection().getRangeAt(0);
-        if (selection) {
-            if (selection.startContainer.parentNode.tagName === 'A'
-                || selection.endContainer.parentNode.tagName === 'A') {
+    const sel = document.getSelection();
+    if (sel.toString().length !== 0 && sel.rangeCount) {
+        const range = sel.getRangeAt(0);
+        if (range) {
+            if (range.startContainer.parentNode.tagName === 'A'
+                || range.endContainer.parentNode.tagName === 'A') {
                 return true;
             } else { return false; }
         } else { return false; }
-    }
+    } else { return false }
 };
 
 //looks specifically for a Range selection and not a Caret selection
@@ -172,12 +173,7 @@ RE.removeFormat = function () {
 };
 
 RE.removeContent = function () {
-    document.getSelection().removeAllRanges()
-    for(let i = 0; i < RE.editor.childNodes.length; i++) {
-        var range = document.createRange();
-        range.selectNode(RE.editor.childNodes[i]);
-        document.getSelection().addRange(range)
-    }
+    document.execCommand('selectAll', false, null);
     document.execCommand('delete', false, null);
     updateSelectionStateOnChange();
 };
@@ -230,7 +226,12 @@ RE.setStrikeThrough = function () {
 
 RE.setUnderline = function () {
     document.execCommand('underline', false, null);
-    updateSelectionStateOnChange();
+    if (isSelectionLink()) {
+        updateSelectionStateOnChange();
+    } else {
+        RE.selectionState.isUndelined = !RE.selectionState.isUndelined;
+        sendSelectionState();
+    }
 };
 
 RE.setTextColor = function (color) {
@@ -328,7 +329,7 @@ RE.insertHTML = function (html) {
     document.execCommand('insertHTML', false, html);
 };
 
-RE.insertLink = function (url, title) {
+RE.insertLink = function (url) {
     RE.restorerange();
     if (isSelectionLink()) {
         RE.removeLink();
@@ -338,7 +339,6 @@ RE.insertLink = function (url, title) {
             if (sel.rangeCount) {
                 let el = document.createElement('a');
                 el.setAttribute('href', url);
-                el.setAttribute('title', title);
 
                 let range = sel.getRangeAt(0).cloneRange();
                 range.surroundContents(el);
