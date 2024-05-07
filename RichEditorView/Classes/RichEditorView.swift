@@ -162,6 +162,13 @@ public extension RichEditorDelegate {
         setup()
     }
     
+    // MARK: - Public funcs
+    public func destroy() {
+        userContentController.removeAllUserScripts()
+        userContentController.removeAllScriptMessageHandlers()
+    }
+    
+    // MARK: - Private funcs
     private func setup() {
         // configure webview
         webView.frame = bounds
@@ -225,7 +232,8 @@ public extension RichEditorDelegate {
     
     private func setHTML(_ value: String) {
         if isEditorLoaded {
-            runJS("RE.setHtml('\(value.escaped)')") { _ in
+            runJS("RE.setHtml('\(value.escaped)')") {[weak self] _ in
+                guard let self else { return }
                 self.updateHeight()
             }
         }
@@ -259,7 +267,8 @@ public extension RichEditorDelegate {
     /// The href of the current selection, if the current selection's parent is an anchor tag.
     /// Will be nil if there is no href, or it is an empty string.
     public func getSelectedHref(handler: @escaping (String?) -> Void) {
-        hasRangeSelection(handler: { r in
+        hasRangeSelection(handler: {[weak self] r in
+            guard let self else { return }
             if !r {
                 handler(nil)
                 return
@@ -488,7 +497,8 @@ public extension RichEditorDelegate {
         if navigationAction.request.url?.absoluteString.hasPrefix(callbackPrefix) == true {
             // When we get a callback, we need to fetch the command queue to run the commands
             // It comes in as a JSON array of commands that we need to parse
-            runJS("RE.getCommandQueue()") { commands in
+            runJS("RE.getCommandQueue()") {[weak self] commands in
+                guard let self else { return }
                 if let data = commands.data(using: .utf8) {
                     
                     let jsonCommands: [String]
@@ -541,7 +551,8 @@ public extension RichEditorDelegate {
         if isEditorLoaded {
             // to get the "editable" value is a different property, than to disable it
             // https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/contentEditable
-            runJS("RE.editor.isContentEditable") { value in
+            runJS("RE.editor.isContentEditable") {[weak self] value in
+                guard let self else { return }
                 self.editingEnabledVar = Bool(value) ?? false
             }
         }
@@ -558,7 +569,8 @@ public extension RichEditorDelegate {
     }
     
     private func updateHeight() {
-        runJS("document.getElementById('editor').clientHeight") { heightString in
+        runJS("document.getElementById('editor').clientHeight") {[weak self] heightString in
+            guard let self else { return }
             let height = Int(heightString) ?? 0
             if self.editorHeight != height {
                 self.editorHeight = height
@@ -572,7 +584,8 @@ public extension RichEditorDelegate {
     private func scrollCaretToVisible() {
         let scrollView = self.webView.scrollView
         
-        getClientHeight(handler: { clientHeight in
+        getClientHeight(handler: {[weak self] clientHeight in
+            guard let self else { return }
             let contentHeight = clientHeight > 0 ? CGFloat(clientHeight) : scrollView.frame.height
             scrollView.contentSize = CGSize(width: scrollView.frame.width, height: contentHeight)
             
@@ -621,7 +634,8 @@ public extension RichEditorDelegate {
             updateHeight()
         } else if method.hasPrefix("input") {
             scrollCaretToVisible()
-            runJS("RE.getHtml()") { content in
+            runJS("RE.getHtml()") {[weak self] content in
+                guard let self else { return }
                 self.contentHTML = content
                 self.updateHeight()
             }
@@ -632,7 +646,8 @@ public extension RichEditorDelegate {
         } else if method.hasPrefix("blur") {
             delegate?.richEditorLostFocus(self)
         } else if method.hasPrefix("action/") {
-            runJS("RE.getHtml()") { content in
+            runJS("RE.getHtml()") {[weak self] content in
+                guard let self else { return }
                 self.contentHTML = content
                 
                 // If there are any custom actions being called

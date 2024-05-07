@@ -109,7 +109,7 @@ RE.runCallbackQueue = function () {
     if (RE.callbackQueue.length === 0) {
         return;
     }
-
+    
     setTimeout(function () {
         window.location.href = 're-callback://';
     }, 0);
@@ -135,11 +135,11 @@ RE.setHtml = function (contents) {
     let tempWrapper = document.createElement('div');
     tempWrapper.innerHTML = contents;
     let images = tempWrapper.querySelectorAll('img');
-
+    
     for (let i = 0; i < images.length; i++) {
         images[i].onload = RE.updateHeight;
     }
-
+    
     RE.editor.innerHTML = tempWrapper.innerHTML;
     RE.updatePlaceholder();
 };
@@ -243,7 +243,7 @@ RE.setTextColor = function (color) {
         }
         return;
     }
-
+    
     RE.restorerange();
     document.execCommand('styleWithCSS', null, true);
     document.execCommand('foreColor', false, color);
@@ -259,7 +259,7 @@ RE.setTextBackgroundColor = function (color) {
         }
         return;
     }
-
+    
     RE.restorerange();
     document.execCommand('styleWithCSS', null, true);
     document.execCommand('hiliteColor', false, color);
@@ -315,7 +315,7 @@ RE.insertImage = function (url, alt) {
     img.setAttribute('src', url);
     img.setAttribute('alt', alt);
     img.onload = RE.updateHeight;
-
+    
     RE.insertHTML(img.outerHTML);
     RE.sendInputCallback();
 };
@@ -339,7 +339,7 @@ RE.insertLink = function (url) {
             if (sel.rangeCount) {
                 let el = document.createElement('a');
                 el.setAttribute('href', url);
-
+                
                 let range = sel.getRangeAt(0).cloneRange();
                 range.surroundContents(el);
                 sel.removeAllRanges();
@@ -347,7 +347,7 @@ RE.insertLink = function (url) {
             }
         }
     }
-
+    
     RE.sendInputCallback();
     
     updateSelectionStateOnChange();
@@ -357,11 +357,11 @@ RE.removeLink = function () {
     const sel = document.getSelection();
     if (sel.anchorNode.parentElement.tagName == 'A') {
         sel.selectAllChildren(sel.anchorNode.parentNode)
-        let text = sel.anchorNode.parentElement.text;
+        let text = sel.anchorNode.textContent;
         let newNode = document.createTextNode(text);
-        sel.anchorNode.parentElement.replaceWith(newNode);
+        sel.anchorNode.replaceWith(newNode);
         sel.removeAllRanges();
-
+        
         let newRange = document.createRange();
         newRange.selectNode(newNode);
         sel.addRange(newRange);
@@ -378,7 +378,7 @@ RE.backuprange = function () {
     if (selection.rangeCount === 0) {
         return;
     }
-
+    
     let node = selection.anchorNode;
     if (node.nodeType === 3) {
         // use the parent, if text node
@@ -462,7 +462,7 @@ const isAnchorNode = function (node) {
 
 RE.getAnchorTagsInNode = function (node) {
     let links = [];
-
+    
     while (node.nextSibling !== null && node.nextSibling !== undefined) {
         node = node.nextSibling;
         if (isAnchorNode(node)) {
@@ -486,7 +486,7 @@ RE.getSelectedHref = function () {
     if (!RE.rangeOrCaretSelectionExists()) {
         return null;
     }
-
+    
     let tags = RE.getAnchorTagsInNode(sel.anchorNode);
     //if more than one link is there, return null
     if (tags.length > 1) {
@@ -497,7 +497,7 @@ RE.getSelectedHref = function () {
         let node = _findNodeByNameInContainer(sel.anchorNode.parentElement, 'A', 'editor');
         href = node.href;
     }
-
+    
     return (href ? href : null);
 };
 
@@ -522,7 +522,7 @@ RE.getRelativeCaretYPosition = function () {
             }
         }
     }
-
+    
     return y;
 };
 
